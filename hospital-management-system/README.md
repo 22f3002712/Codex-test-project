@@ -83,10 +83,27 @@ The backend includes JWT authentication and role-protected endpoints:
 - `GET /api/dashboard/doctor` (Doctor only)
 - `GET /api/dashboard/patient` (Patient only)
 
-## Celery Worker
+## Celery Worker and Scheduler
+
+Background jobs are configured with Redis as both broker and result backend. The following jobs are available:
+
+- `tasks.daily_reminder_job` (daily at 07:00)
+- `tasks.monthly_doctor_report_job` (first day of month at 08:00)
+- `tasks.generate_patient_treatment_csv` (queued asynchronously from patient API endpoint)
 
 Run a worker from the project root:
 
 ```bash
-celery -A backend.extensions.celery worker --loglevel=info
+celery -A backend.celery_worker.celery_app worker --loglevel=info
 ```
+
+Run Celery Beat scheduler:
+
+```bash
+celery -A backend.celery_worker.celery_app beat --loglevel=info
+```
+
+Trigger CSV export asynchronously as a patient:
+
+- `POST /patient/treatments/export` → returns Celery `task_id`
+- `GET /patient/treatments/export/<task_id>` → returns task status/result with CSV file path

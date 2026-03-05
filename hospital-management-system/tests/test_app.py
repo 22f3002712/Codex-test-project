@@ -11,6 +11,7 @@ from backend.models.doctor import Doctor
 from backend.models.patient import Patient
 from backend.models.treatment import Treatment
 from backend.models.user import Role, User
+from backend.tasks.tasks import generate_patient_treatment_csv
 
 
 class TestConfig:
@@ -166,3 +167,32 @@ def test_cached_patient_lookup_routes(client, app):
     availability = client.get(f"/patient/doctors/{context['doctor_id']}/availability", headers=headers)
     assert availability.status_code == 200
     assert len(availability.get_json()["availabilities"]) == 1
+
+
+def test_generate_treatment_csv_task(client, app):
+    context = seed_patient_context(app)
+
+    with app.app_context():
+        appointment = Appointment(
+            patient_id=context["patient_id"],
+            doctor_id=context["doctor_id"],
+            appointment_date=date.today(),
+            appointment_time=time(hour=11, minute=0),
+            status=AppointmentStatus.COMPLETED.value,
+        )
+        db.session.add(appointment)
+        db.session.flush()
+
+        treatment = Treatment(
+            appointment_id=appointment.id,
+            diagnosis="Flu",
+            prescription="Rest",
+            notes="Drink warm fluids",
+        )
+        db.session.add(treatment)
+        db.session.commit()
+
+        result = generate_patient_treatment_csv(context["patient_id"])
+
+    assert result["status"] == "completed"
+    assert result["records"] == 1

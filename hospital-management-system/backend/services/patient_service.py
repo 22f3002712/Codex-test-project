@@ -1,6 +1,7 @@
 from datetime import date, datetime
 
 from sqlalchemy.exc import IntegrityError
+from celery.result import AsyncResult
 
 from backend.extensions import db
 from backend.models.appointment import Appointment, AppointmentStatus
@@ -9,6 +10,7 @@ from backend.models.doctor import Doctor
 from backend.models.doctor_availability import DoctorAvailability
 from backend.models.patient import Patient
 from backend.models.treatment import Treatment
+from backend.tasks.tasks import generate_patient_treatment_csv
 
 
 def get_patient_dashboard(user_id: int):
@@ -230,6 +232,40 @@ def get_treatment_history(user_id: int):
             for treatment in treatments
         ]
     }, 200
+
+
+def request_treatment_history_export(user_id: int):
+    patient = Patient.query.filter_by(user_id=user_id).first()
+    if not patient:
+        return {"message": "Patient profile not found"}, 404
+
+    task = generate_patient_treatment_csv.delay(patient.id)
+    return {
+        "message": "Treatment history export requested",
+        "task_id": task.id,
+    }, 202
+
+
+def get_treatment_history_export_status(user_id: int, task_id: str):
+    patient = Patient.query.filter_by(user_id=user_id).first()
+    if not patient:
+        return {"message": "Patient profile not found"}, 404
+
+    task = AsyncResult(task_id)
+    response = {
+        "task_id": task.id,
+        "status": task.status,
+    }
+
+    if task.successful() and isinstance(task.result, dict):
+        if task.result.get("patient_id") != patient.id:
+            return {"message": "Export task does not belong to this patient"}, 403
+        response["result"] = task.result
+
+    if task.failed():
+        response["error"] = str(task.result)
+
+    return response, 200
 
 
 def parse_slot(raw_date: str, raw_time: str):
