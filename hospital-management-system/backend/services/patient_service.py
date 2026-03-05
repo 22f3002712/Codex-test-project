@@ -6,6 +6,7 @@ from backend.extensions import db
 from backend.models.appointment import Appointment, AppointmentStatus
 from backend.models.department import Department
 from backend.models.doctor import Doctor
+from backend.models.doctor_availability import DoctorAvailability
 from backend.models.patient import Patient
 from backend.models.treatment import Treatment
 
@@ -61,6 +62,49 @@ def search_doctors(doctor_name=None, specialization=None):
     doctors = query.order_by(Doctor.name.asc()).all()
 
     return {"doctors": [serialize_doctor(doctor) for doctor in doctors]}, 200
+
+
+def get_departments():
+    departments = Department.query.order_by(Department.name.asc()).all()
+    return {"departments": [serialize_department(department) for department in departments]}, 200
+
+
+def get_doctors_by_specialization(specialization: str):
+    if not specialization:
+        return {"message": "specialization query parameter is required"}, 400
+
+    doctors = (
+        Doctor.query.filter_by(is_active=True, is_blacklisted=False)
+        .filter(Doctor.specialization.ilike(f"%{specialization}%"))
+        .order_by(Doctor.name.asc())
+        .all()
+    )
+
+    return {"doctors": [serialize_doctor(doctor) for doctor in doctors]}, 200
+
+
+def get_doctor_availability(doctor_id: int):
+    doctor = Doctor.query.filter_by(id=doctor_id, is_active=True, is_blacklisted=False).first()
+    if not doctor:
+        return {"message": "Doctor not found or unavailable"}, 404
+
+    availabilities = (
+        DoctorAvailability.query.filter_by(doctor_id=doctor.id)
+        .order_by(DoctorAvailability.date.asc())
+        .all()
+    )
+
+    return {
+        "doctor": serialize_doctor(doctor),
+        "availabilities": [
+            {
+                "id": availability.id,
+                "date": availability.date.isoformat(),
+                "available_slots": availability.available_slots,
+            }
+            for availability in availabilities
+        ],
+    }, 200
 
 
 def book_appointment(user_id: int, payload: dict):

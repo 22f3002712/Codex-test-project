@@ -2,7 +2,7 @@ from flask import Flask, render_template
 
 from backend.config import Config
 from backend.database.init_db import initialize_database
-from backend.extensions import db, init_celery, jwt
+from backend.extensions import cache, db, init_celery, jwt
 from backend.routes import admin_bp, auth_bp, dashboard_bp, doctor_bp, patient_bp
 
 
@@ -13,6 +13,7 @@ def create_app(config_class=Config):
 
     db.init_app(app)
     jwt.init_app(app)
+    cache.init_app(app)
     init_celery(app)
 
     app.register_blueprint(auth_bp)
