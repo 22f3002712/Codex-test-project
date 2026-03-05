@@ -19,3 +19,15 @@ def role_required(*allowed_roles):
         return wrapper
 
     return decorator
+
+
+def admin_required(func):
+    return role_required("admin")(func)
+
+
+def doctor_required(func):
+    return role_required("doctor")(func)
+
+
+def patient_required(func):
+    return role_required("patient")(func)
