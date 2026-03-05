@@ -3,7 +3,7 @@ from flask import Flask, render_template
 from backend.config import Config
 from backend.database.init_db import initialize_database
 from backend.extensions import db, init_celery, jwt
-from backend.routes import admin_bp, auth_bp, dashboard_bp
+from backend.routes import admin_bp, auth_bp, dashboard_bp, doctor_bp
 
 
 
@@ -18,6 +18,7 @@ def create_app(config_class=Config):
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(admin_bp)
+    app.register_blueprint(doctor_bp)
 
     @app.get("/")
     def index():
