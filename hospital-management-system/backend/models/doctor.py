@@ -11,6 +11,7 @@ class Doctor(db.Model):
     department_id = db.Column(db.Integer, db.ForeignKey("departments.id"), nullable=False)
     availability_info = db.Column(db.Text, nullable=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True)
+    is_blacklisted = db.Column(db.Boolean, nullable=False, default=False)
 
     user = db.relationship("User", back_populates="doctor_profile")
     department = db.relationship("Department", back_populates="doctors")

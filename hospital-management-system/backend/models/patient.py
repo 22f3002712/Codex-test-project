@@ -11,6 +11,7 @@ class Patient(db.Model):
     phone = db.Column(db.String(20), nullable=True)
     address = db.Column(db.Text, nullable=True)
     date_of_birth = db.Column(db.Date, nullable=True)
+    is_blacklisted = db.Column(db.Boolean, nullable=False, default=False)
 
     user = db.relationship("User", back_populates="patient_profile")
     appointments = db.relationship(
