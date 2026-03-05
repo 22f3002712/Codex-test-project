@@ -8,7 +8,9 @@ from backend.services.patient_service import (
     get_doctor_availability,
     get_doctors_by_specialization,
     get_patient_dashboard,
+    get_treatment_history_export_status,
     get_treatment_history,
+    request_treatment_history_export,
     reschedule_appointment,
     search_doctors,
 )
@@ -91,4 +93,20 @@ def patient_cancel_appointment(appointment_id: int):
 def patient_treatments():
     user_id = int(get_jwt_identity())
     result, status_code = get_treatment_history(user_id)
+    return jsonify(result), status_code
+
+
+@patient_bp.post("/treatments/export")
+@patient_required
+def patient_treatments_export():
+    user_id = int(get_jwt_identity())
+    result, status_code = request_treatment_history_export(user_id)
+    return jsonify(result), status_code
+
+
+@patient_bp.get("/treatments/export/<string:task_id>")
+@patient_required
+def patient_treatments_export_status(task_id: str):
+    user_id = int(get_jwt_identity())
+    result, status_code = get_treatment_history_export_status(user_id, task_id)
     return jsonify(result), status_code
