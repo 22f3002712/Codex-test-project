@@ -1,0 +1,67 @@
+{
+  "departments": [
+    {
+      "name": "Cardiology",
+      "description": "Heart and blood vessel care"
+    },
+    {
+      "name": "Neurology",
+      "description": "Brain, spine, and nervous system care"
+    }
+  ],
+  "doctors": [
+    {
+      "username": "dr_smith",
+      "password": "Doctor@123",
+      "name": "Dr. Anna Smith",
+      "specialization": "Cardiology",
+      "department": "Cardiology"
+    },
+    {
+      "username": "dr_khan",
+      "password": "Doctor@123",
+      "name": "Dr. Imran Khan",
+      "specialization": "Neurology",
+      "department": "Neurology"
+    }
+  ],
+  "patients": [
+    {
+      "username": "john_doe",
+      "password": "Patient@123",
+      "name": "John Doe",
+      "email": "john.doe@example.com",
+      "phone": "+1-555-0101",
+      "address": "12 Main Street"
+    },
+    {
+      "username": "mary_jane",
+      "password": "Patient@123",
+      "name": "Mary Jane",
+      "email": "mary.jane@example.com",
+      "phone": "+1-555-0102",
+      "address": "42 River Road"
+    }
+  ],
+  "appointments": [
+    {
+      "patient_username": "john_doe",
+      "doctor_username": "dr_smith",
+      "appointment_date": "2030-01-15",
+      "appointment_time": "09:30",
+      "status": "Booked"
+    },
+    {
+      "patient_username": "mary_jane",
+      "doctor_username": "dr_khan",
+      "appointment_date": "2030-01-16",
+      "appointment_time": "10:00",
+      "status": "Completed",
+      "treatment": {
+        "diagnosis": "Migraine",
+        "prescription": "Ibuprofen",
+        "notes": "Hydrate and reduce screen time"
+      }
+    }
+  ]
+}

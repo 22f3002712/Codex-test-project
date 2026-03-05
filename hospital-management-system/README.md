@@ -1,109 +1,95 @@
-# Hospital Management System (HMS)
+# Hospital Management System
 
-Initial full-stack architecture for a local Hospital Management System using:
+Hospital Management System built with a **Flask API backend** and **VueJS frontend**.
 
-- **Backend:** Flask
-- **Frontend:** VueJS
-- **Styling:** Bootstrap
-- **Template engine:** Jinja2 (backend entry page only)
-- **Database:** SQLite (via SQLAlchemy models)
-- **Cache / Broker / Result backend:** Redis
-- **Background jobs:** Celery with Redis
+## Stack
 
-## Project Structure
+- Flask
+- VueJS
+- Bootstrap
+- SQLite
+- Redis
+- Celery
+
+## Project Layout
 
 ```text
 hospital-management-system/
+├── app.py                      # Local run entrypoint: python app.py
 ├── backend/
-│   ├── app.py
-│   ├── config.py
-│   ├── extensions.py
-│   ├── models/
-│   ├── routes/
-│   ├── services/
-│   ├── utils/
-│   ├── tasks/
-│   ├── cache/
+│   ├── app.py                  # Flask app factory and API setup
+│   ├── celery_worker.py        # Celery app bootstrap
 │   ├── database/
-│   └── templates/
+│   │   ├── init_db.py          # Programmatic schema creation
+│   │   └── seed_data.py        # Seed utility functions
 ├── frontend/
-│   ├── index.html
-│   ├── js/
-│   ├── components/
-│   └── views/
-├── tests/
-├── docker/
-├── requirements.txt
-└── README.md
+├── sample_data/
+│   └── seed_data.json          # Sample records used by seed script
+├── scripts/
+│   └── seed_database.py        # CLI seed script
+└── requirements.txt
 ```
 
-## Quick Start (Local)
+## Local Setup
 
-1. **Create and activate virtual environment**
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate
-   ```
-2. **Install dependencies**
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. **Start Redis (required for cache/celery)**
-   ```bash
-   docker compose -f docker/docker-compose.yml up -d
-   ```
-4. **Run Flask app**
-   ```bash
-   cd backend
-   flask --app app run
-   ```
-5. **Open frontend**
-   - Open `frontend/index.html` directly in browser, or serve it via:
-   ```bash
-   python -m http.server 8080 --directory frontend
-   ```
+1. Create and activate a virtual environment:
 
-## Database Initialization Rules
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
 
-- SQLite database is created automatically from SQLAlchemy models at app startup.
-- Default Admin user is auto-created on first run.
-- No manual schema creation is required.
+2. Install dependencies:
 
-Default admin credentials (override via environment variables):
+```bash
+pip install -r requirements.txt
+```
 
-- Username: `admin`
-- Email: `admin@hms.local`
-- Password: `Admin@123`
+3. Seed database with sample data (optional but recommended):
 
-## Role-Based Access Control
+```bash
+python scripts/seed_database.py
+```
 
-The backend includes JWT authentication and role-protected endpoints:
+## Run the Project Locally
 
-- `GET /api/dashboard/admin` (Admin only)
-- `GET /api/dashboard/doctor` (Doctor only)
-- `GET /api/dashboard/patient` (Patient only)
+Start each service in a separate terminal from the project root.
 
-## Celery Worker and Scheduler
+1. Flask API and backend-rendered root page:
 
-Background jobs are configured with Redis as both broker and result backend. The following jobs are available:
+```bash
+python app.py
+```
 
-- `tasks.daily_reminder_job` (daily at 07:00)
-- `tasks.monthly_doctor_report_job` (first day of month at 08:00)
-- `tasks.generate_patient_treatment_csv` (queued asynchronously from patient API endpoint)
+2. Redis server:
 
-Run a worker from the project root:
+```bash
+redis-server
+```
+
+3. Celery worker:
 
 ```bash
 celery -A backend.celery_worker.celery_app worker --loglevel=info
 ```
 
-Run Celery Beat scheduler:
+> Note: Celery worker requires Redis to be running.
+
+## Database Notes
+
+- The SQLite schema is created programmatically via SQLAlchemy (`db.create_all()`).
+- On app start, the app creates schema and default admin user if they do not exist.
+- Seed data is idempotent by unique keys (re-running the seed script does not duplicate records).
+
+## Default Admin
+
+- Username: `admin`
+- Password: `Admin@123`
+
+## Tests
+
+Run the test suite with:
 
 ```bash
-celery -A backend.celery_worker.celery_app beat --loglevel=info
+pytest
 ```
-
-Trigger CSV export asynchronously as a patient:
-
-- `POST /patient/treatments/export` → returns Celery `task_id`
-- `GET /patient/treatments/export/<task_id>` → returns task status/result with CSV file path
