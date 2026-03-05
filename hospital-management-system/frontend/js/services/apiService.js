@@ -24,7 +24,14 @@ apiClient.interceptors.response.use(
       localStorage.removeItem("token");
       localStorage.removeItem("role");
     }
-    return Promise.reject(error);
+
+    const message =
+      error.response?.data?.message ||
+      error.response?.data?.error ||
+      error.message ||
+      "Request failed";
+
+    return Promise.reject(new Error(message));
   },
 );
 

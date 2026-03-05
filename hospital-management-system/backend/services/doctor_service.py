@@ -1,3 +1,4 @@
+import logging
 from datetime import date, timedelta
 
 from backend.extensions import db
@@ -5,6 +6,9 @@ from backend.models.appointment import Appointment, AppointmentStatus
 from backend.models.doctor import Doctor
 from backend.models.doctor_availability import DoctorAvailability
 from backend.models.treatment import Treatment
+from backend.validators import validate_status_transition
+
+logger = logging.getLogger(__name__)
 
 
 def get_doctor_dashboard(user_id: int):
@@ -78,6 +82,16 @@ def update_appointment_status(user_id: int, appointment_id: int, status: str):
     appointment = Appointment.query.filter_by(id=appointment_id, doctor_id=doctor.id).first()
     if not appointment:
         return {"message": "Appointment not found"}, 404
+
+    is_valid_transition, transition_error = validate_status_transition(appointment.status, status)
+    if not is_valid_transition:
+        logger.info(
+            "Invalid status transition for appointment_id=%s: %s -> %s",
+            appointment.id,
+            appointment.status,
+            status,
+        )
+        return {"message": transition_error}, 400
 
     appointment.status = status
     db.session.commit()

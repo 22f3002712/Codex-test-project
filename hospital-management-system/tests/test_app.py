@@ -76,6 +76,43 @@ def seed_patient_context(app):
         }
 
 
+def seed_doctor_context(app):
+    with app.app_context():
+        department = Department(name="Neurology", description="Brain care")
+
+        doctor_user = User(username="drhouse", role=Role.DOCTOR.value)
+        doctor_user.set_password("secret")
+        doctor = Doctor(
+            user=doctor_user,
+            name="Dr. House",
+            specialization="Neurology",
+            department=department,
+            is_active=True,
+            is_blacklisted=False,
+        )
+
+        patient_user = User(username="jane", role=Role.PATIENT.value)
+        patient_user.set_password("secret")
+        patient = Patient(user=patient_user, name="Jane Roe", email="jane@example.com")
+
+        db.session.add_all([department, doctor_user, doctor, patient_user, patient])
+        db.session.commit()
+
+        token = create_access_token(identity=str(doctor_user.id), additional_claims={"role": "doctor"})
+
+        appointment = Appointment(
+            patient_id=patient.id,
+            doctor_id=doctor.id,
+            appointment_date=date.today() + timedelta(days=1),
+            appointment_time=time(hour=10, minute=0),
+            status=AppointmentStatus.BOOKED.value,
+        )
+        db.session.add(appointment)
+        db.session.commit()
+
+        return {"token": token, "appointment_id": appointment.id}
+
+
 def test_health_page_renders(client):
     response = client.get("/")
     assert response.status_code == 200
@@ -196,3 +233,32 @@ def test_generate_treatment_csv_task(client, app):
 
     assert result["status"] == "completed"
     assert result["records"] == 1
+
+
+def test_booking_validation_rejects_invalid_payload(client, app):
+    context = seed_patient_context(app)
+    headers = {"Authorization": f"Bearer {context['token']}"}
+
+    response = client.post(
+        "/patient/appointments",
+        json={"doctor_id": "abc", "appointment_date": "bad", "appointment_time": "10:00"},
+        headers=headers,
+    )
+
+    assert response.status_code == 400
+    assert "doctor_id" in response.get_json()["message"]
+
+
+def test_doctor_status_transition_enforced(client, app):
+    context = seed_doctor_context(app)
+    headers = {"Authorization": f"Bearer {context['token']}"}
+
+    invalid_cancel = client.post(f"/doctor/appointment/{context['appointment_id']}/cancel", headers=headers)
+    assert invalid_cancel.status_code == 400
+    assert "Invalid status transition" in invalid_cancel.get_json()["message"]
+
+    completed = client.post(f"/doctor/appointment/{context['appointment_id']}/complete", headers=headers)
+    assert completed.status_code == 200
+
+    cancelled = client.post(f"/doctor/appointment/{context['appointment_id']}/cancel", headers=headers)
+    assert cancelled.status_code == 200
