@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import Enum
 
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -16,10 +17,9 @@ class User(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), nullable=False, unique=True)
-    email = db.Column(db.String(120), nullable=False, unique=True)
     password_hash = db.Column(db.String(255), nullable=False)
-    role = db.Column(db.String(20), nullable=False)
-    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    role = db.Column(db.String(20), nullable=False, default=Role.PATIENT.value)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     doctor_profile = db.relationship("Doctor", back_populates="user", uselist=False)
     patient_profile = db.relationship("Patient", back_populates="user", uselist=False)

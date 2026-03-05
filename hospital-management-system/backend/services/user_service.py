@@ -8,7 +8,6 @@ def create_default_admin(config, db):
 
     admin = User(
         username=config["ADMIN_DEFAULT_USERNAME"],
-        email=config["ADMIN_DEFAULT_EMAIL"],
         role=Role.ADMIN.value,
     )
     admin.set_password(config["ADMIN_DEFAULT_PASSWORD"])

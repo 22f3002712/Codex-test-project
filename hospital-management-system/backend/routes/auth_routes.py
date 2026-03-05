@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token
 
 from backend.extensions import db
+from backend.models.patient import Patient
 from backend.models.user import Role, User
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/api/auth")
@@ -28,24 +29,33 @@ def login():
 def register_patient():
     payload = request.get_json(silent=True) or {}
 
-    required_fields = ["username", "email", "password"]
+    required_fields = ["username", "email", "password", "name"]
     missing = [field for field in required_fields if not payload.get(field)]
     if missing:
         return jsonify({"message": f"Missing fields: {', '.join(missing)}"}), 400
 
-    if User.query.filter(
-        (User.username == payload["username"]) | (User.email == payload["email"])
-    ).first():
-        return jsonify({"message": "Username or email already exists"}), 409
+    if User.query.filter_by(username=payload["username"]).first():
+        return jsonify({"message": "Username already exists"}), 409
+
+    if Patient.query.filter_by(email=payload["email"]).first():
+        return jsonify({"message": "Patient email already exists"}), 409
 
     user = User(
         username=payload["username"],
-        email=payload["email"],
         role=Role.PATIENT.value,
     )
     user.set_password(payload["password"])
 
-    db.session.add(user)
+    patient = Patient(
+        user=user,
+        name=payload["name"],
+        email=payload["email"],
+        phone=payload.get("phone"),
+        address=payload.get("address"),
+        date_of_birth=payload.get("date_of_birth"),
+    )
+
+    db.session.add_all([user, patient])
     db.session.commit()
 
     return jsonify({"message": "Patient registered successfully"}), 201
