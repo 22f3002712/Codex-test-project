@@ -38,7 +38,7 @@ def patient_doctors_by_specialization():
 
 @patient_bp.get("/doctors/<int:doctor_id>/availability")
 @patient_required
-@cache.cached(timeout=300)
+@cache.cached(timeout=300, query_string=True)
 def patient_doctor_availability(doctor_id: int):
     result, status_code = get_doctor_availability(doctor_id)
     return jsonify(result), status_code
@@ -54,6 +54,7 @@ def patient_dashboard():
 
 @patient_bp.get("/search")
 @patient_required
+@cache.cached(timeout=180, query_string=True)
 def patient_search_doctors():
     doctor_name = request.args.get("doctor_name")
     specialization = request.args.get("specialization")

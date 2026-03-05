@@ -1,4 +1,5 @@
-from datetime import date, datetime
+import logging
+from datetime import date
 
 from sqlalchemy.exc import IntegrityError
 from celery.result import AsyncResult
@@ -11,6 +12,9 @@ from backend.models.doctor_availability import DoctorAvailability
 from backend.models.patient import Patient
 from backend.models.treatment import Treatment
 from backend.tasks.tasks import generate_patient_treatment_csv
+from backend.validators import validate_booking_payload
+
+logger = logging.getLogger(__name__)
 
 
 def get_patient_dashboard(user_id: int):
@@ -114,20 +118,27 @@ def book_appointment(user_id: int, payload: dict):
     if not patient:
         return {"message": "Patient profile not found"}, 404
 
-    required_fields = ["doctor_id", "appointment_date", "appointment_time"]
-    missing = [field for field in required_fields if not payload.get(field)]
-    if missing:
-        return {"message": f"Missing fields: {', '.join(missing)}"}, 400
+    validated_payload, validation_error = validate_booking_payload(payload)
+    if validation_error:
+        return {"message": validation_error}, 400
 
     doctor = Doctor.query.filter_by(
-        id=payload["doctor_id"], is_active=True, is_blacklisted=False
+        id=validated_payload["doctor_id"], is_active=True, is_blacklisted=False
     ).first()
     if not doctor:
         return {"message": "Doctor not found or unavailable"}, 404
 
-    parsed_date, parsed_time, error = parse_slot(payload["appointment_date"], payload["appointment_time"])
-    if error:
-        return {"message": error}, 400
+    parsed_date = validated_payload["appointment_date"]
+    parsed_time = validated_payload["appointment_time"]
+
+    existing = Appointment.query.filter_by(
+        doctor_id=doctor.id,
+        appointment_date=parsed_date,
+        appointment_time=parsed_time,
+    ).first()
+    if existing:
+        logger.info("Double booking prevented for doctor_id=%s at %s %s", doctor.id, parsed_date, parsed_time)
+        return {"message": "Selected slot is already booked for this doctor"}, 409
 
     appointment = Appointment(
         patient_id=patient.id,
@@ -142,6 +153,7 @@ def book_appointment(user_id: int, payload: dict):
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
+        logger.warning("Race-condition double booking prevented for doctor_id=%s", doctor.id)
         return {"message": "Selected slot is already booked for this doctor"}, 409
 
     return {
@@ -162,14 +174,18 @@ def reschedule_appointment(user_id: int, appointment_id: int, payload: dict):
     if appointment.status == AppointmentStatus.CANCELLED.value:
         return {"message": "Cancelled appointment cannot be rescheduled"}, 400
 
-    required_fields = ["appointment_date", "appointment_time"]
-    missing = [field for field in required_fields if not payload.get(field)]
-    if missing:
-        return {"message": f"Missing fields: {', '.join(missing)}"}, 400
+    validated_payload, validation_error = validate_booking_payload(
+        {
+            "doctor_id": appointment.doctor_id,
+            "appointment_date": payload.get("appointment_date"),
+            "appointment_time": payload.get("appointment_time"),
+        }
+    )
+    if validation_error:
+        return {"message": validation_error.replace("doctor_id", "appointment")}, 400
 
-    parsed_date, parsed_time, error = parse_slot(payload["appointment_date"], payload["appointment_time"])
-    if error:
-        return {"message": error}, 400
+    parsed_date = validated_payload["appointment_date"]
+    parsed_time = validated_payload["appointment_time"]
 
     appointment.appointment_date = parsed_date
     appointment.appointment_time = parsed_time
@@ -266,21 +282,6 @@ def get_treatment_history_export_status(user_id: int, task_id: str):
         response["error"] = str(task.result)
 
     return response, 200
-
-
-def parse_slot(raw_date: str, raw_time: str):
-    try:
-        parsed_date = date.fromisoformat(raw_date)
-    except ValueError:
-        return None, None, "Invalid appointment_date format. Use YYYY-MM-DD"
-
-    try:
-        parsed_time = datetime.strptime(raw_time, "%H:%M").time()
-    except ValueError:
-        return None, None, "Invalid appointment_time format. Use HH:MM"
-
-    return parsed_date, parsed_time, None
-
 
 def serialize_department(department: Department):
     return {
