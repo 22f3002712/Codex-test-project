@@ -4,14 +4,42 @@ from flask_jwt_extended import get_jwt_identity
 from backend.services.patient_service import (
     book_appointment,
     cancel_patient_appointment,
+    get_departments,
+    get_doctor_availability,
+    get_doctors_by_specialization,
     get_patient_dashboard,
     get_treatment_history,
     reschedule_appointment,
     search_doctors,
 )
+from backend.extensions import cache
 from backend.utils.auth import patient_required
 
 patient_bp = Blueprint("patient", __name__, url_prefix="/patient")
+
+
+@patient_bp.get("/departments")
+@patient_required
+@cache.cached(timeout=300)
+def patient_departments():
+    result, status_code = get_departments()
+    return jsonify(result), status_code
+
+
+@patient_bp.get("/doctors/by-specialization")
+@patient_required
+@cache.cached(timeout=300, query_string=True)
+def patient_doctors_by_specialization():
+    result, status_code = get_doctors_by_specialization(request.args.get("specialization"))
+    return jsonify(result), status_code
+
+
+@patient_bp.get("/doctors/<int:doctor_id>/availability")
+@patient_required
+@cache.cached(timeout=300)
+def patient_doctor_availability(doctor_id: int):
+    result, status_code = get_doctor_availability(doctor_id)
+    return jsonify(result), status_code
 
 
 @patient_bp.get("/dashboard")

@@ -138,3 +138,31 @@ def test_patient_dashboard_search_and_treatments(client, app):
     treatment_json = treatments.get_json()["treatments"]
     assert len(treatment_json) == 1
     assert treatment_json[0]["diagnosis"] == "Migraine"
+
+
+def test_cached_patient_lookup_routes(client, app):
+    context = seed_patient_context(app)
+    headers = {"Authorization": f"Bearer {context['token']}"}
+
+    with app.app_context():
+        from backend.models.doctor_availability import DoctorAvailability
+
+        availability = DoctorAvailability(
+            doctor_id=context["doctor_id"],
+            date=date.today() + timedelta(days=1),
+            available_slots="09:00-11:00",
+        )
+        db.session.add(availability)
+        db.session.commit()
+
+    departments = client.get("/patient/departments", headers=headers)
+    assert departments.status_code == 200
+    assert len(departments.get_json()["departments"]) == 1
+
+    doctors = client.get("/patient/doctors/by-specialization?specialization=cardio", headers=headers)
+    assert doctors.status_code == 200
+    assert len(doctors.get_json()["doctors"]) == 1
+
+    availability = client.get(f"/patient/doctors/{context['doctor_id']}/availability", headers=headers)
+    assert availability.status_code == 200
+    assert len(availability.get_json()["availabilities"]) == 1
